@@ -13,7 +13,7 @@ Features
 ## Installation
 
 ```ts
-import { Snowflake } from "https://deno.land/x/yasi@v0.0.1/mod.ts";;
+import { Snowflake } from "https://deno.land/x/yasi@v0.0.1/mod.ts";
 ```
 
 ## Usage
