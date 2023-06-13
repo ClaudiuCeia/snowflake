@@ -18,9 +18,12 @@
  * | 10111001111101100101100001101100101001110 | 111111111010 | 1000110111
  *
  * ID: 6699997482488687159
+ *
+ * This layout allows for 4096 unique IDs to be generated per millisecond per
+ * machine, and a maximum of 4096 machines - max 16,777,216 unique IDs per
+ * millisecond.
  */
-import { FNV } from "https://deno.land/x/fnv@v0.0.1/src/mod.ts";
-import { sleep } from "https://deno.land/x/sleep@v1.2.0/mod.ts";
+import { FNV } from "https://deno.land/x/fnv@v0.0.3/mod.ts";
 
 const TOTAL_BITS = 64n;
 const EPOCH_BITS = 42n;
@@ -36,12 +39,13 @@ type SnowflakeOpts = {
 };
 
 export class Snowflake {
-  private static defaultTimeOffset = new Date("01-01-2020").valueOf();
-  private lastTime = 0;
-  private sequence = 0;
+  private static defaultTimeOffset = new Date("01-01-2023").valueOf();
   public readonly nodeID: number;
   public readonly timeOffset: number;
   private static instance?: Snowflake;
+
+  private lastTimestamp: bigint;
+  private lastSequence: bigint;
 
   private constructor(nodeID?: number, timeOffset?: number) {
     if (!nodeID) {
@@ -55,6 +59,9 @@ export class Snowflake {
 
     this.timeOffset = timeOffset;
     this.nodeID = nodeID & Number(maxNodeID);
+
+    this.lastTimestamp = 0n;
+    this.lastSequence = -1n;
   }
 
   public static get(opts?: Partial<SnowflakeOpts>): Snowflake {
@@ -62,34 +69,45 @@ export class Snowflake {
       return Snowflake.instance;
     }
 
-    Snowflake.instance = new Snowflake(
-      opts?.nodeID,
-      opts?.timeOffset
-    );
+    Snowflake.instance = new Snowflake(opts?.nodeID, opts?.timeOffset);
     return Snowflake.instance;
   }
 
-  public async genNewID(): Promise<bigint> {
-    const now = Date.now() - this.timeOffset;
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
 
-    if (this.lastTime === now) {
-      this.sequence = (this.sequence + 1) & Number(maxSequence);
-      // Can't generate more unique IDs during this millisecond, take a nap
-      if (!this.sequence) {
-        await sleep(1 / 1000);
+  async genNewID(): Promise<bigint> {
+    const TIMESTAMP_LEFT_SHIFT = NODE_ID_BITS + SEQUENCE_BITS;
+    const NODE_ID_SHIFT = SEQUENCE_BITS;
+  
+    let timestamp = BigInt(Date.now() - this.timeOffset);
+    let sequence = this.lastSequence;
+  
+    // If the timestamp hasn't changed since the last ID generation,
+    // increment the sequence number.
+    if (timestamp === this.lastTimestamp) {
+      sequence++;
+      if (sequence > maxSequence) {
+        // If the sequence number exceeds the maximum, wait until the next
+        // millisecond to reset it.
+        do {
+          await this.sleep(1);
+          timestamp = BigInt(Date.now() - this.timeOffset);
+        } while (timestamp === this.lastTimestamp);
+        sequence = 0n;
       }
     } else {
-      this.sequence = 0;
+      // If the timestamp has changed, reset the sequence number.
+      sequence = 0n;
     }
-
-    this.lastTime = now;
-
-    let id: bigint; // potentially a 64 bit ID
-    id = BigInt(now) << (TOTAL_BITS - EPOCH_BITS);
-    id |= BigInt(this.nodeID) << (TOTAL_BITS - EPOCH_BITS - NODE_ID_BITS);
-    id |= BigInt(this.sequence);
-
-    return id;
+  
+    this.lastTimestamp = timestamp;
+    this.lastSequence = sequence;
+  
+    return (timestamp << TIMESTAMP_LEFT_SHIFT)
+      | (BigInt(this.nodeID) << NODE_ID_SHIFT)
+      | sequence;
   }
 
   public static getTimestampFromID(id: bigint, timeOffset?: number): number {

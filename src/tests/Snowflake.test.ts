@@ -2,7 +2,7 @@ import { Snowflake } from "../Snowflake.ts";
 import {
   assertEquals,
   AssertionError,
-} from "https://deno.land/std@0.120.0/testing/asserts.ts";
+} from "https://deno.land/std@0.178.0/testing/asserts.ts";
 import { isMonotonic } from "../isMonotonic.ts";
 
 function assertGreaterThanOrEqual(
@@ -23,18 +23,16 @@ Deno.test("gen monotonic IDs", async () => {
     nodeID: 4090,
   });
 
-  const now = Date.now();
-  const awaitables: Promise<bigint>[] = [];
-  while (now + 1000 > Date.now()) {
-    awaitables.push(snowflake.genNewID());
+  const ids: bigint[] = [];
+  for await (const _ of Array(50000)) {
+    const id = await snowflake.genNewID();
+    ids.push(id);
   }
-  const ids = await Promise.all(awaitables);
 
   // Dev and test machines can be flimsy, so settle for ~50k IDs when testing
-    assertGreaterThanOrEqual(ids.length, 50000);
-   //  console.log(ids)
+  assertGreaterThanOrEqual(ids.length, 50000);
   // But we really want them to be unique IDs
   assertEquals(new Set(ids).size, ids.length);
   // And for each process, we want them to be monotonic
-  // assertEquals(isMonotonic(ids), true);
+  assertEquals(isMonotonic(ids), true);
 });
