@@ -1,4 +1,4 @@
-# yasi- yet another snowflake implementation
+# yasi - yet another snowflake implementation
 
 `yasi` is a Deno library for generating unique, roughly time-ordered IDs across distributed systems. The library is based on Twitter's Snowflake, a network service for generating unique ID numbers at high scale with some simple guarantees.
 
