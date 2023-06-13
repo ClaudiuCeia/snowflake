@@ -5,10 +5,10 @@
 This project aims to be a lightweight, uncoordinated, and distributed unique ID generator, capable of producing unique 64-bit integer IDs.
 
 Features
-    - Lightweight: A single tiny external dependency which will be removed in the future
-    - Unique ID Generation: Generates unique IDs across distributed systems
-    - Uncoordinated: No need for system-wide coordination
-    - Roughly Time-Ordered: IDs generated are roughly ordered over time
+  - Lightweight: A single tiny external dependency which will be removed in the future
+  - Unique ID generation: Generates unique IDs across distributed systems
+  - Uncoordinated: No need for system-wide coordination
+  - Roughly time-ordered: IDs generated are roughly ordered over time
 
 ## Installation
 
